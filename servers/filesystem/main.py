@@ -13,7 +13,7 @@ import shutil
 from datetime import datetime, timezone, timedelta
 import json
 import secrets
-from config import ALLOWED_DIRECTORIES
+from .config import ALLOWED_DIRECTORIES
 
 app = FastAPI(
     title="Secure Filesystem API",

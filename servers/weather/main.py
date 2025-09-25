@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List # Removed Literal, no longer needed for query param
+from .config import OPEN_METEO_URL, FAHRENHEIT_COUNTRIES, ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="Weather API",
@@ -11,12 +12,10 @@ app = FastAPI(
     description="Provides weather retrieval by latitude and longitude using Open-Meteo.", # Updated description
 )
 
-origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -58,9 +57,7 @@ class WeatherForecastOutput(BaseModel):
 # Routes
 # -------------------------------
 
-OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
-# Countries officially using Fahrenheit
-FAHRENHEIT_COUNTRIES = {"US", "LR", "MM"} # USA, Liberia, Myanmar
+# Countries officially using Fahrenheit are configurable
 
 @app.get("/forecast", response_model=WeatherForecastOutput, summary="Get current weather and forecast")
 def get_weather_forecast(

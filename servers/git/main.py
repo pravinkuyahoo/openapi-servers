@@ -7,6 +7,7 @@ from typing import List, Optional
 from enum import Enum
 import git
 from pydantic import BaseModel, Field
+from .config import ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="Git Management API",
@@ -14,12 +15,10 @@ app = FastAPI(
     description="An API to manage Git repositories with explicit endpoints, inputs, and outputs for better OpenAPI schemas.",
 )
 
-origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

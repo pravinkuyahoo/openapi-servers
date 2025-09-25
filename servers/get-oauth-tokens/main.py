@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import os
+from .config import ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="Token Extractor API",
@@ -10,8 +11,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You may restrict this to certain domains
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,  # Configurable
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -1,9 +1,6 @@
 import requests
 from .base import BaseSummarizer
-import os
-
-MODEL_URL=os.environ.get('MODEL_URL')
-MODEL=os.environ.get('MODEL')
+from ..config import MODEL_URL, MODEL
 SUMMARIZE_PROMPT = """You are the summarizing agent in a long chain of agents.
 It is your job to responsibly capture the entirety of what is being described in incoming documents.
 You can scrap small details, but you must make sure to hit all the major points.

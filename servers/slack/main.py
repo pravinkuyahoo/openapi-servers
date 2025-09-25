@@ -10,7 +10,14 @@ import json  # For JSONDecodeError
 from typing import Optional, List, Dict, Any, Type, Callable
 
 import httpx
-from dotenv import load_dotenv
+from .config import (
+    SLACK_BOT_TOKEN,
+    SLACK_TEAM_ID,
+    PREDEFINED_CHANNEL_IDS,
+    SERVER_API_KEY,
+    ALLOWED_ORIGINS,
+    ALLOW_CREDENTIALS,
+)
 from fastapi import FastAPI, HTTPException, Body, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
@@ -23,26 +30,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Environment variables
-# ---------------------------------------------------------------------------
-load_dotenv()
-
-SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-SLACK_TEAM_ID = os.getenv("SLACK_TEAM_ID")
-SLACK_CHANNEL_IDS_STR = os.getenv("SLACK_CHANNEL_IDS")  # Optional
-ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS", "*")
-SERVER_API_KEY = os.getenv("SERVER_API_KEY")  # Optional API key for security
-
-if not SLACK_BOT_TOKEN:
-    logger.critical("SLACK_BOT_TOKEN environment variable not set.")
-    raise ValueError("SLACK_BOT_TOKEN environment variable not set.")
-if not SLACK_TEAM_ID:
-    logger.critical("SLACK_TEAM_ID environment variable not set.")
-    raise ValueError("SLACK_TEAM_ID environment variable not set.")
-
-PREDEFINED_CHANNEL_IDS: Optional[List[str]] = (
-    [cid.strip() for cid in SLACK_CHANNEL_IDS_STR.split(",")] if SLACK_CHANNEL_IDS_STR else None
-)
+# Environment
+if not SLACK_BOT_TOKEN or not SLACK_TEAM_ID:
+    logger.warning("Slack credentials not configured; endpoints will return 503 until set.")
 
 # ---------------------------------------------------------------------------
 # FastAPI app setup
@@ -54,14 +44,14 @@ app = FastAPI(
 )
 
 # CORS
-allow_origins = [origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",")]
+allow_origins = ALLOWED_ORIGINS
 if allow_origins == ["*"]:
     logger.warning("CORS allow_origins is set to '*' which is insecure for production. Consider setting ALLOWED_ORIGINS environment variable.")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
-    allow_credentials=True,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -284,9 +274,12 @@ class SlackClient:
 
 
 # ---------------------------------------------------------------------------
-# Instantiate Slack client
+# Instantiate Slack client lazily (to avoid import-time failures)
 # ---------------------------------------------------------------------------
-slack_client = SlackClient(token=SLACK_BOT_TOKEN, team_id=SLACK_TEAM_ID)
+def require_slack_client() -> "SlackClient":
+    if not SLACK_BOT_TOKEN or not SLACK_TEAM_ID:
+        raise HTTPException(status_code=503, detail="Slack credentials not configured")
+    return SlackClient(token=SLACK_BOT_TOKEN, team_id=SLACK_TEAM_ID)
 
 
 # ---------------------------------------------------------------------------
@@ -295,42 +288,42 @@ slack_client = SlackClient(token=SLACK_BOT_TOKEN, team_id=SLACK_TEAM_ID)
 TOOL_MAPPING = {
     "slack_list_channels": {
         "args_model": ListChannelsArgs,
-        "method": slack_client.get_channels,
+        "method": "get_channels",
         "description": "List public or pre-defined channels in the workspace with pagination",
     },
     "slack_post_message": {
         "args_model": PostMessageArgs,
-        "method": slack_client.post_message,
+        "method": "post_message",
         "description": "Post a new message to a Slack channel",
     },
     "slack_reply_to_thread": {
         "args_model": ReplyToThreadArgs,
-        "method": slack_client.post_reply,
+        "method": "post_reply",
         "description": "Reply to a specific message thread in Slack",
     },
     "slack_add_reaction": {
         "args_model": AddReactionArgs,
-        "method": slack_client.add_reaction,
+        "method": "add_reaction",
         "description": "Add a reaction emoji to a message",
     },
     "slack_get_channel_history": {
         "args_model": GetChannelHistoryArgs,
-        "method": slack_client.get_channel_history,
+        "method": "get_channel_history",
         "description": "Get recent messages from a channel",
     },
     "slack_get_thread_replies": {
         "args_model": GetThreadRepliesArgs,
-        "method": slack_client.get_thread_replies,
+        "method": "get_thread_replies",
         "description": "Get all replies in a message thread",
     },
     "slack_get_users": {
         "args_model": GetUsersArgs,
-        "method": slack_client.get_users,
+        "method": "get_users",
         "description": "Get a list of all users in the workspace with their basic profile information",
     },
     "slack_get_user_profile": {
         "args_model": GetUserProfileArgs,
-        "method": slack_client.get_user_profile,
+        "method": "get_user_profile",
         "description": "Get detailed profile information for a specific user",
     },
 }
@@ -341,7 +334,9 @@ TOOL_MAPPING = {
 def create_endpoint_handler(tool_name: str, method: Callable, args_model: Type[BaseModel]):
     async def handler(args: args_model = Body(...), api_key: str = Depends(get_api_key)) -> ToolResponse:  # noqa: ANN001
         try:
-            result = await method(args=args)
+            client = require_slack_client()
+            bound = getattr(client, TOOL_MAPPING[tool_name]["method"])  # resolve method name to bound method
+            result = await bound(args=args)
             return {"content": result}
         except HTTPException:
             raise  # re‑raise untouched
@@ -368,7 +363,11 @@ for name, cfg in TOOL_MAPPING.items():
 # ---------------------------------------------------------------------------
 @app.on_event("shutdown")
 async def _close_slack_client():
-    await slack_client.aclose()
+    try:
+        client = require_slack_client()
+        await client.aclose()
+    except HTTPException:
+        pass
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ from typing import List
 from langchain_community.vectorstores import FAISS
 from sentence_transformers import SentenceTransformer
 from langchain.embeddings import HuggingFaceEmbeddings
+from .config import VECTORSTORE_PATH, EMBEDDING_MODEL_NAME, ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="RAG Retriever API",
@@ -31,20 +32,18 @@ class RetrievalResponse(BaseModel):
     responses: List[RetrievedDoc]
 
 
-# --------- Initialize Retriever (on app startup) --------
-VECTORSTORE_PATH = "faiss_index"  # Path to your FAISS vector store
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"  # Widely used, fast
+# --------- Retriever loading (lazy) --------
+_retriever = None
 
 
 def get_retriever():
-    embedder = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
-    vectorstore = FAISS.load_local(VECTORSTORE_PATH, embeddings=embedder)
-    retriever = vectorstore.as_retriever()
-    return retriever
-
-
-retriever = get_retriever()
-# --------------------------------------------------------
+    global _retriever
+    if _retriever is None:
+        embedder = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+        vectorstore = FAISS.load_local(VECTORSTORE_PATH, embeddings=embedder)
+        _retriever = vectorstore.as_retriever()
+    return _retriever
+# ------------------------------------------
 
 
 @app.post(
@@ -59,7 +58,7 @@ def retrieve_docs(input: RetrievalQueryInput):
     try:
         out = []
         for q in input.queries:
-            docs = retriever.get_relevant_documents(q, k=input.k)
+            docs = get_retriever().get_relevant_documents(q, k=input.k)
             results = [doc.page_content for doc in docs]
             out.append(RetrievedDoc(query=q, results=results))
         return RetrievalResponse(responses=out)

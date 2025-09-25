@@ -1,8 +1,8 @@
-import os
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional
+from .config import DATABASE_URL, OPENAI_API_KEY, ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 # --- LLM/SQL libraries ---
 from langchain_experimental.sql import SQLDatabaseChain
@@ -10,13 +10,6 @@ from langchain_community.llms.openai import OpenAI
 from langchain_community.utilities import SQLDatabase
 
 from sqlalchemy.exc import SQLAlchemyError
-
-# -- Load DB URL from environment variable --
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL environment variable must be set.")
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Set this in your environment
 
 
 # -------------------------------
@@ -51,8 +44,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -62,6 +55,8 @@ app.add_middleware(
 # LLM + SQL Chain Setup (singleton)
 # -------------------------------
 def get_chain():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not configured. Set env or servers/sql/config.py.")
     # Initiate reflected SQLAlchemy DB
     db = SQLDatabase.from_uri(DATABASE_URL)
     # LLM instance: using OpenAI GPT (or swap for your preferred)

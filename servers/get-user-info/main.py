@@ -1,9 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import aiohttp
-import os
-
-OPEN_WEBUI_BASE_URL = os.getenv("OPEN_WEBUI_BASE_URL", "http://localhost:8080")
+from .config import OPEN_WEBUI_BASE_URL, ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="User Info Proxy API",
@@ -13,8 +11,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You may restrict this to certain domains
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

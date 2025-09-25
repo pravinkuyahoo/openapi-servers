@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from .config import GOOGLE_API_KEY as CFG_GOOGLE_API_KEY, GOOGLE_PSE_CX as CFG_GOOGLE_PSE_CX, ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="Google Programmable Search Engine API",
@@ -11,12 +12,10 @@ app = FastAPI(
     description="Provides web search functionality using Google's Custom Search JSON API.",
 )
 
-origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -88,8 +87,8 @@ def search_web(
     """
     
     # Get API key and search engine ID from parameters or environment variables
-    google_api_key = api_key or os.getenv("GOOGLE_API_KEY")
-    search_engine_id = cx or os.getenv("GOOGLE_PSE_CX")
+    google_api_key = api_key or CFG_GOOGLE_API_KEY
+    search_engine_id = cx or CFG_GOOGLE_PSE_CX
     
     if not google_api_key:
         raise HTTPException(

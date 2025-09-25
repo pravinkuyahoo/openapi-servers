@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 import pandas as pd
 
 from datetime import datetime
+from pathlib import Path
+from .config import BITCOIN_DATA_CSV, ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="Bitcoin Price Predictor",
@@ -14,15 +16,25 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-bitcoin_price_data = pd.read_csv("btcusd_1-min_data.csv")
-bitcoin_price_data["Timestamp"] = pd.to_datetime(
-    bitcoin_price_data["Timestamp"], unit='s')
+_data = None
+
+
+def load_data():
+    global _data
+    if _data is None:
+        path = Path(BITCOIN_DATA_CSV)
+        if not path.is_absolute():
+            path = Path(__file__).parent / path
+        df = pd.read_csv(path)
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit='s')
+        _data = df
+    return _data
 
 
 class BitcoinPriceQueryForm(BaseModel):
@@ -55,8 +67,9 @@ async def get_price_by_date(form_data: BitcoinPriceQueryForm):
     start_date = pd.to_datetime(form_data.date)
     end_date = start_date + pd.Timedelta(days=1)
 
-    date_query_result = bitcoin_price_data[(
-        bitcoin_price_data["Timestamp"] >= start_date) & (bitcoin_price_data["Timestamp"] < end_date)]
+    data = load_data()
+    date_query_result = data[(
+        data["Timestamp"] >= start_date) & (data["Timestamp"] < end_date)]
 
     if date_query_result.empty:
         raise HTTPException(
@@ -71,8 +84,9 @@ async def get_price_by_date(form_data: BitcoinPriceQueryForm):
 async def get_stat_by_date_range(form_data: BitcoinPriceStatQueryForm):
     start_date = pd.to_datetime(form_data.start_date)
     end_date = pd.to_datetime(form_data.end_date)
-    date_query_result = bitcoin_price_data[(
-        bitcoin_price_data["Timestamp"] >= start_date) & (bitcoin_price_data["Timestamp"] < end_date)]
+    data = load_data()
+    date_query_result = data[(
+        data["Timestamp"] >= start_date) & (data["Timestamp"] < end_date)]
 
     if date_query_result.empty:
         raise HTTPException(
@@ -99,8 +113,9 @@ async def get_trend_by_date_range(form_data: BitcoinPriceTrendQueryForm):
         raise HTTPException(
             status_code=400, detail="Date range ovred 30 days")
 
-    date_query_result = bitcoin_price_data[(
-        bitcoin_price_data["Timestamp"] >= start_date) & (bitcoin_price_data["Timestamp"] < end_date)]
+    data = load_data()
+    date_query_result = data[(
+        data["Timestamp"] >= start_date) & (data["Timestamp"] < end_date)]
 
     if date_query_result.empty:
         raise HTTPException(

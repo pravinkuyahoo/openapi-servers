@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Literal
 import pytz
 from dateutil import parser as dateutil_parser
+from .config import DEFAULT_TIME_FORMAT, DEFAULT_TIMEZONE, ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="Secure Time Utilities API",
@@ -15,12 +16,10 @@ app = FastAPI(
 )
 
 
-origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -33,10 +32,10 @@ app.add_middleware(
 
 class FormatTimeInput(BaseModel):
     format: str = Field(
-        "%Y-%m-%d %H:%M:%S", description="Python strftime format string"
+        DEFAULT_TIME_FORMAT, description="Python strftime format string"
     )
     timezone: str = Field(
-        "UTC", description="IANA timezone name (e.g., UTC, America/New_York)"
+        DEFAULT_TIMEZONE, description="IANA timezone name (e.g., UTC, America/New_York)"
     )
 
 
@@ -63,7 +62,7 @@ class ParseTimestampInput(BaseModel):
         ..., description="Flexible input timestamp string (e.g., 2024-06-01 12:00 PM)"
     )
     timezone: str = Field(
-        "UTC", description="Assumed timezone if none is specified in input"
+        DEFAULT_TIMEZONE, description="Assumed timezone if none is specified in input"
     )
 
 

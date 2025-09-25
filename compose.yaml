@@ -3,19 +3,29 @@ services:
     build:
       context: ./servers/filesystem
     ports:
-      - 8081:8000
+      - 8081:8001
   memory-server:
     build:
       context: ./servers/memory
     ports:
-      - 8082:8000
+      - 8082:8001
     volumes:
       - memory:/app/data:rw
   time-server:
     build:
       context: ./servers/time
     ports:
-      - 8083:8000
+      - 8083:8001
+  summarize:
+    build:
+      context: ./servers/summarizer-tool
+    ports:
+      - 8084:8001
+  userInfo:
+    build:
+      context: ./servers/get-user-info
+    ports:
+      - 8085:8001
 
 volumes:
   memory:

@@ -7,6 +7,7 @@ from typing import List, Literal, Union
 from pathlib import Path
 import json
 import os
+from .config import MEMORY_FILE_PATH, ALLOWED_ORIGINS, ALLOW_CREDENTIALS
 
 app = FastAPI(
     title="Knowledge Graph Server",
@@ -14,24 +15,17 @@ app = FastAPI(
     description="A structured knowledge graph memory system that supports entity and relation storage, observation tracking, and manipulation.",
 )
 
-origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
 # ----- Persistence Setup -----
-MEMORY_FILE_PATH_ENV = os.getenv("MEMORY_FILE_PATH", "memory.json")
-MEMORY_FILE_PATH = Path(
-    MEMORY_FILE_PATH_ENV
-    if Path(MEMORY_FILE_PATH_ENV).is_absolute()
-    else Path(__file__).parent / MEMORY_FILE_PATH_ENV
-)
+# From config
 
 
 # ----- Data Models -----
